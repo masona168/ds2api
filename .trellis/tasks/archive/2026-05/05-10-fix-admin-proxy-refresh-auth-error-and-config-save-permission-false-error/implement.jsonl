@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend task entrypoint and linked guidelines for Go server/config changes."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Error propagation and user-visible backend error behavior are part of both fixes."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Quality constraints for scoped Go changes and tests."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Fix spans browser route negotiation, backend API routing, config store, and UI-observed state."}

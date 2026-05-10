@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Check backend task against configured project guidelines."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Verify auth errors, persistence errors, and atomic failure behavior."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Verify scoped implementation and test coverage."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check browser/API route overlap and config persistence data flow."}
