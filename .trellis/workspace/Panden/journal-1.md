@@ -39,3 +39,37 @@ Allowed multiple saved proxies to share proxy pool endpoints while remaining uni
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Fix admin proxy refresh and config persistence
+
+**Date**: 2026-05-10
+**Task**: Fix admin proxy refresh and config persistence
+**Branch**: `personal/dev`
+
+### Summary
+
+Fixed Admin proxy tab browser refresh by serving the SPA for HTML navigation while preserving protected JSON API behavior, made config mutations commit only after file persistence succeeds, updated compose image to ghcr.io/masona168/ds2api:personal-dev, validated focused Go tests and lint, and pushed personal/dev.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1028f08` | (see git log) |
+| `c95525c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
