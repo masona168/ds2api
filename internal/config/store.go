@@ -224,9 +224,13 @@ func (s *Store) Replace(cfg Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cfg.NormalizeCredentials()
-	s.cfg = cfg.Clone()
+	next := cfg.Clone()
+	if err := s.saveConfigLocked(next); err != nil {
+		return err
+	}
+	s.cfg = next
 	s.rebuildIndexes()
-	return s.saveLocked()
+	return nil
 }
 
 func (s *Store) Update(mutator func(*Config) error) error {
@@ -239,9 +243,12 @@ func (s *Store) Update(mutator func(*Config) error) error {
 	}
 	cfg.ReconcileCredentials(base)
 	cfg.NormalizeCredentials()
+	if err := s.saveConfigLocked(cfg); err != nil {
+		return err
+	}
 	s.cfg = cfg
 	s.rebuildIndexes()
-	return s.saveLocked()
+	return nil
 }
 
 func (s *Store) Save() error {
@@ -265,11 +272,15 @@ func (s *Store) Save() error {
 }
 
 func (s *Store) saveLocked() error {
+	return s.saveConfigLocked(s.cfg)
+}
+
+func (s *Store) saveConfigLocked(cfg Config) error {
 	if s.fromEnv && (IsVercel() || !envWritebackEnabled()) {
 		Logger.Info("[save_config] source from env, skip write")
 		return nil
 	}
-	persistCfg := s.cfg.Clone()
+	persistCfg := cfg.Clone()
 	persistCfg.ClearAccountTokens()
 	b, err := json.MarshalIndent(persistCfg, "", "  ")
 	if err != nil {

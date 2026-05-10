@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -376,6 +377,77 @@ func TestStoreUpdateAccountTokenKeepsIdentifierResolvable(t *testing.T) {
 
 	if got, ok := store.FindAccount(oldID); !ok || got.Token != "new-token" {
 		t.Fatalf("expected find by stable account identifier")
+	}
+}
+
+func TestStoreUpdateDoesNotCommitInMemoryWhenWriteFails(t *testing.T) {
+	store, before := newFileBackedStoreWithUnwritableConfigPath(t)
+
+	err := store.Update(func(c *Config) error {
+		c.Proxies = append(c.Proxies, Proxy{ID: "proxy-unsaved", Name: "Unsaved", Type: "socks5h", Host: "127.0.0.1", Port: 1080})
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected write failure")
+	}
+	assertFilesystemWriteError(t, err)
+	assertStoreSnapshotUnchanged(t, store.Snapshot(), before)
+}
+
+func TestStoreReplaceDoesNotCommitInMemoryWhenWriteFails(t *testing.T) {
+	store, before := newFileBackedStoreWithUnwritableConfigPath(t)
+
+	err := store.Replace(Config{Keys: []string{"replacement-key"}})
+	if err == nil {
+		t.Fatal("expected write failure")
+	}
+	assertFilesystemWriteError(t, err)
+	assertStoreSnapshotUnchanged(t, store.Snapshot(), before)
+}
+
+func newFileBackedStoreWithUnwritableConfigPath(t *testing.T) (*Store, Config) {
+	t.Helper()
+	configDir := t.TempDir()
+	path := filepath.Join(configDir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"keys":["persisted-key"],"accounts":[],"proxies":[]}`), 0o644); err != nil {
+		t.Fatalf("write initial config: %v", err)
+	}
+
+	t.Setenv("DS2API_CONFIG_JSON", "")
+	t.Setenv("DS2API_CONFIG_PATH", path)
+
+	store, err := LoadStoreWithError()
+	if err != nil {
+		t.Fatalf("load store: %v", err)
+	}
+	before := store.Snapshot()
+
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove config file: %v", err)
+	}
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatalf("create directory at config path: %v", err)
+	}
+	return store, before
+}
+
+func assertFilesystemWriteError(t *testing.T, err error) {
+	t.Helper()
+	if !strings.Contains(err.Error(), "is a directory") && !strings.Contains(err.Error(), "permission denied") && !strings.Contains(err.Error(), "access is denied") {
+		t.Fatalf("expected filesystem write error, got %v", err)
+	}
+}
+
+func assertStoreSnapshotUnchanged(t *testing.T, after, before Config) {
+	t.Helper()
+	if len(after.Proxies) != len(before.Proxies) {
+		t.Fatalf("expected snapshot unchanged after failed write, before=%#v after=%#v", before.Proxies, after.Proxies)
+	}
+	if len(after.Proxies) != 0 {
+		t.Fatalf("expected no in-memory proxy commit after failed write, got %#v", after.Proxies)
+	}
+	if len(after.Keys) != len(before.Keys) || after.Keys[0] != before.Keys[0] {
+		t.Fatalf("expected keys unchanged after failed write, before=%#v after=%#v", before.Keys, after.Keys)
 	}
 }
 

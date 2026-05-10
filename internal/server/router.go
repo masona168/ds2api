@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -116,6 +117,7 @@ func NewApp() (*App, error) {
 	gemini.RegisterRoutes(r, geminiHandler)
 	ollama.RegisterRoutes(r, ollamaHandler)
 	r.Route("/admin", func(ar chi.Router) {
+		ar.Use(adminSPABrowserNavigation(webuiHandler))
 		admin.RegisterRoutes(ar, adminHandler)
 	})
 	webui.RegisterRoutes(r, webuiHandler)
@@ -147,6 +149,81 @@ func filteredLogger() func(http.Handler) http.Handler {
 
 func isWindowsRuntime() bool {
 	return runtime.GOOS == "windows"
+}
+
+func adminSPABrowserNavigation(webuiHandler *webui.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if isHTMLDocumentRequest(r) && isKnownAdminSPATabPath(r.URL.Path) && webuiHandler.HandleAdminFallback(w, r) {
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func isKnownAdminSPATabPath(path string) bool {
+	switch path {
+	case "/admin/proxies":
+		return true
+	default:
+		return false
+	}
+}
+
+func isHTMLDocumentRequest(r *http.Request) bool {
+	if r == nil || r.Method != http.MethodGet {
+		return false
+	}
+	if r.Header.Get("Sec-Fetch-Mode") != "" && !strings.EqualFold(r.Header.Get("Sec-Fetch-Mode"), "navigate") {
+		return false
+	}
+	if r.Header.Get("Sec-Fetch-Dest") != "" && !strings.EqualFold(r.Header.Get("Sec-Fetch-Dest"), "document") {
+		return false
+	}
+	return acceptsHTML(r.Header.Get("Accept"))
+}
+
+func acceptsHTML(raw string) bool {
+	htmlQ := acceptQuality(raw, "text/html")
+	if htmlQ <= 0 {
+		return false
+	}
+	jsonQ := acceptQuality(raw, "application/json")
+	wildcardQ := acceptQuality(raw, "*/*")
+	return htmlQ >= jsonQ && htmlQ >= wildcardQ
+}
+
+func acceptQuality(raw, mediaRange string) float64 {
+	best := 0.0
+	for _, part := range strings.Split(raw, ",") {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		mediaType, params, _ := strings.Cut(item, ";")
+		mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+		if mediaType != strings.ToLower(mediaRange) {
+			continue
+		}
+		quality := 1.0
+		for params != "" {
+			var param string
+			param, params, _ = strings.Cut(params, ";")
+			key, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+			if !ok || !strings.EqualFold(strings.TrimSpace(key), "q") {
+				continue
+			}
+			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+			if err == nil && parsed >= 0 {
+				quality = parsed
+			}
+		}
+		if quality > best {
+			best = quality
+		}
+	}
+	return best
 }
 
 type filteredLogFormatter struct {
