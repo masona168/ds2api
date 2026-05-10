@@ -856,7 +856,7 @@ data: {"type":"message_stop"}
 
 ### `POST /admin/proxies`
 
-新增代理。请求体支持 `id`（可选，未传则自动生成）、`name`、`type`（`http` / `socks5`）、`host`、`port`、`username`、`password`。
+新增代理。请求体支持 `id`（可选，未传则自动生成）、`name`、`type`（`socks5` / `socks5h`）、`host`、`port`、`username`、`password`。只要求代理 `id` 唯一；允许多个代理记录使用相同 `host` / `port`，以便代理池按用户名等凭据路由。
 
 ### `PUT /admin/proxies/{proxyID}`
 

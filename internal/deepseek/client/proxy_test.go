@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"ds2api/internal/config"
 	dsprotocol "ds2api/internal/deepseek/protocol"
 	"net/http"
 	"strings"
@@ -42,6 +43,14 @@ func TestProxyDialAddressKeepsHostnameForSocks5h(t *testing.T) {
 	}
 	if lookups != 0 {
 		t.Fatalf("expected no local DNS lookup for socks5h, got %d", lookups)
+	}
+}
+
+func TestProxyCacheKeyDistinguishesSameEndpointCredentials(t *testing.T) {
+	first := proxyCacheKey(config.Proxy{ID: "pool-a", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-a", Password: "secret"})
+	second := proxyCacheKey(config.Proxy{ID: "pool-b", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-b", Password: "secret"})
+	if first == second {
+		t.Fatalf("expected cache keys to differ for same endpoint with different credentials")
 	}
 }
 

@@ -845,7 +845,7 @@ Lists proxy configs (password is never returned; use `has_password` as a marker)
 
 ### `POST /admin/proxies`
 
-Adds a proxy. Request accepts `id` (optional; auto-generated when omitted), `name`, `type` (`http` / `socks5`), `host`, `port`, `username`, `password`.
+Adds a proxy. Request accepts `id` (optional; auto-generated when omitted), `name`, `type` (`socks5` / `socks5h`), `host`, `port`, `username`, `password`. Only proxy `id` must be unique; multiple proxy records may share the same `host` / `port` so proxy pools can route by credentials such as username.
 
 ### `PUT /admin/proxies/{proxyID}`
 

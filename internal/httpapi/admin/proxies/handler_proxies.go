@@ -3,6 +3,7 @@ package proxies
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -40,6 +41,30 @@ func proxyResponse(proxy config.Proxy) map[string]any {
 	}
 }
 
+func ensureUniqueProxyID(proxy config.Proxy, proxies []config.Proxy) config.Proxy {
+	proxy = config.NormalizeProxy(proxy)
+	base := proxy.ID
+	if base == "" {
+		base = config.StableProxyID(proxy)
+	}
+	used := make(map[string]struct{}, len(proxies))
+	for _, existing := range proxies {
+		existing = config.NormalizeProxy(existing)
+		used[existing.ID] = struct{}{}
+	}
+	if _, ok := used[base]; !ok {
+		proxy.ID = base
+		return proxy
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s_%d", base, i)
+		if _, ok := used[candidate]; !ok {
+			proxy.ID = candidate
+			return proxy
+		}
+	}
+}
+
 func (h *Handler) listProxies(w http.ResponseWriter, _ *http.Request) {
 	proxies := h.Store.Snapshot().Proxies
 	items := make([]map[string]any, 0, len(proxies))
@@ -62,7 +87,11 @@ func (h *Handler) addProxy(w http.ResponseWriter, r *http.Request) {
 	var req map[string]any
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	proxy := toProxy(req)
+	explicitID := fieldString(req, "id") != ""
 	err := h.Store.Update(func(c *config.Config) error {
+		if !explicitID {
+			proxy = ensureUniqueProxyID(proxy, c.Proxies)
+		}
 		c.Proxies = append(c.Proxies, proxy)
 		return validateProxyMutation(c)
 	})

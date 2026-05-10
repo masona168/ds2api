@@ -62,6 +62,98 @@ func TestAddProxyPersistsNormalizedProxy(t *testing.T) {
 	}
 }
 
+func TestAddProxyAllowsSamePoolEndpoint(t *testing.T) {
+	h := newAdminProxyTestHandler(t, `{
+		"proxies":[{"id":"proxy_pool","name":"Pool A","type":"socks5h","host":"127.0.0.1","port":1080,"username":"user-a","password":"secret-a"}]
+	}`)
+
+	r := chi.NewRouter()
+	r.Post("/admin/proxies", h.addProxy)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/proxies", bytes.NewBufferString(`{
+		"name":"Pool B",
+		"type":"socks5h",
+		"host":"127.0.0.1",
+		"port":1080,
+		"username":"user-b",
+		"password":"secret-b"
+	}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	proxies := h.Store.Snapshot().Proxies
+	if len(proxies) != 2 {
+		t.Fatalf("expected 2 proxies, got %d", len(proxies))
+	}
+	if proxies[0].Host != proxies[1].Host || proxies[0].Port != proxies[1].Port {
+		t.Fatalf("expected shared pool endpoint, got %#v", proxies)
+	}
+	if proxies[0].ID == proxies[1].ID {
+		t.Fatalf("expected unique proxy IDs, got %#v", proxies)
+	}
+	if proxies[1].Username != "user-b" || proxies[1].Password != "secret-b" {
+		t.Fatalf("expected second proxy credentials preserved, got %#v", proxies[1])
+	}
+}
+
+func TestAddProxyAssignsUniqueIDForRepeatedGeneratedID(t *testing.T) {
+	h := newAdminProxyTestHandler(t, `{
+		"proxies":[{"name":"Pool A","type":"socks5h","host":"127.0.0.1","port":1080,"username":"user-a","password":"secret-a"}]
+	}`)
+
+	r := chi.NewRouter()
+	r.Post("/admin/proxies", h.addProxy)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/proxies", bytes.NewBufferString(`{
+		"name":"Pool A Copy",
+		"type":"socks5h",
+		"host":"127.0.0.1",
+		"port":1080,
+		"username":"user-a",
+		"password":"secret-a"
+	}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	proxies := h.Store.Snapshot().Proxies
+	if len(proxies) != 2 {
+		t.Fatalf("expected 2 proxies, got %d", len(proxies))
+	}
+	if proxies[0].ID == proxies[1].ID {
+		t.Fatalf("expected generated ID collision to be avoided, got %#v", proxies)
+	}
+}
+
+func TestAddProxyRejectsDuplicateExplicitID(t *testing.T) {
+	h := newAdminProxyTestHandler(t, `{
+		"proxies":[{"id":"proxy-pool","name":"Pool A","type":"socks5h","host":"127.0.0.1","port":1080,"username":"user-a"}]
+	}`)
+
+	r := chi.NewRouter()
+	r.Post("/admin/proxies", h.addProxy)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/proxies", bytes.NewBufferString(`{
+		"id":"proxy-pool",
+		"name":"Pool B",
+		"type":"socks5h",
+		"host":"127.0.0.1",
+		"port":1080,
+		"username":"user-b"
+	}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected duplicate explicit ID rejection, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAddProxyDoesNotFailOnUnrelatedInvalidRuntimeConfig(t *testing.T) {
 	router := newHTTPAdminHarness(t, `{
 		"keys":["k1"],

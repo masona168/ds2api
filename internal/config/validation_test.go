@@ -59,6 +59,29 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+func TestValidateProxyConfigAllowsSameEndpointWithUniqueIDs(t *testing.T) {
+	err := ValidateProxyConfig([]Proxy{
+		{ID: "pool-user-a", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-a"},
+		{ID: "pool-user-b", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-b"},
+	})
+	if err != nil {
+		t.Fatalf("expected same endpoint with unique IDs to be valid, got %v", err)
+	}
+}
+
+func TestValidateProxyConfigRejectsDuplicateIDs(t *testing.T) {
+	err := ValidateProxyConfig([]Proxy{
+		{ID: "pool", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-a"},
+		{ID: "pool", Type: "socks5h", Host: "127.0.0.1", Port: 1080, Username: "user-b"},
+	})
+	if err == nil {
+		t.Fatal("expected duplicate proxy ID to be rejected")
+	}
+	if !strings.Contains(err.Error(), "duplicate proxy id: pool") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestValidateConfigAcceptsLegacyAutoDeleteSessions(t *testing.T) {
 	if err := ValidateConfig(Config{AutoDelete: AutoDeleteConfig{Sessions: true}}); err != nil {
 		t.Fatalf("expected legacy auto_delete.sessions config to remain valid, got %v", err)
