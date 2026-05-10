@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend package entrypoint and required coding guidelines for Go config/admin/runtime changes."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Testing and minimal-change expectations for backend behavior changes."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Admin handler validation errors should follow project error-handling conventions."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check existing proxy/config helpers before adding new abstractions."}
